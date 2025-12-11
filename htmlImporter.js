@@ -60,7 +60,6 @@ export async function loadScriptsFromHTML(html, basePath = "") {
           newScript.onerror = () => {
             console.error(`Failed to load script: ${src}`);
             resolve();
-            s;
           };
           document.body.appendChild(newScript);
         });
@@ -110,14 +109,34 @@ export async function loadAllByClass(className = "html-import") {
     const src = el.getAttribute("data-src");
     if (!src) continue;
 
-    const html = await fetchHTML(src);
+    let vars = {};
+    const varAttr = el.getAttribute("data-vars");
+    if (varAttr) {
+      try {
+        vars = JSON.parse(varAttr);
+      } catch (err) {
+        console.error("Invalid JSON in data-vars:", varAttr);
+      }
+    }
+
+    let html = await fetchHTML(src);
     if (!html) continue;
+    html = applyVariables(html, vars);
 
     const basePath = new URL(src, window.location.href).href;
     const content = loadStylesFromHTML(html, basePath);
     el.insertAdjacentHTML("beforeend", content);
     await loadScriptsFromHTML(html, basePath);
   }
+}
+
+export function applyVariables(html, vars = {}) {
+  return html.replace(/\$([A-Za-z0-9_]+)/g, (match, key) => {
+    if (vars.hasOwnProperty(key)) {
+      return vars[key];
+    }
+    return match;
+  });
 }
 
 loadAllByClass();
